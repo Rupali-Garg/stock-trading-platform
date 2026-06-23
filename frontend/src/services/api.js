@@ -1,16 +1,12 @@
 import axios from 'axios';
 
-// Create axios instance with base config
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  withCredentials: true, // sends cookies (refresh token)
-  headers: { 'Content-Type': 'application/json' },
+  baseURL:         import.meta.env.VITE_API_BASE_URL,
+  withCredentials: true,
+  headers:         { 'Content-Type': 'application/json' },
 });
 
-// ─────────────────────────────────────────────
-// REQUEST INTERCEPTOR
-// Attach access token to every request
-// ─────────────────────────────────────────────
+// ── Request interceptor — attach access token ─────────────────
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
@@ -22,20 +18,13 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ─────────────────────────────────────────────
-// RESPONSE INTERCEPTOR
-// If 401 → try to refresh token → retry request
-// ─────────────────────────────────────────────
+// ── Response interceptor — handle 401 + token refresh ────────
 let isRefreshing = false;
-let failedQueue = [];
+let failedQueue  = [];
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
+    error ? prom.reject(error) : prom.resolve(token);
   });
   failedQueue = [];
 };
@@ -51,7 +40,6 @@ api.interceptors.response.use(
       !originalRequest.url.includes('/auth/refresh')
     ) {
       if (isRefreshing) {
-        // Queue requests while refresh is in progress
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -63,23 +51,18 @@ api.interceptors.response.use(
       }
 
       originalRequest._retry = true;
-      isRefreshing = true;
+      isRefreshing            = true;
 
       try {
-        // Attempt token refresh
         const response = await api.post('/auth/refresh');
         const newToken = response.data.data.accessToken;
-
         localStorage.setItem('accessToken', newToken);
         api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
         processQueue(null, newToken);
-
-        // Retry original request
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // Refresh failed — clear auth and redirect to login
         localStorage.removeItem('accessToken');
         window.location.href = '/login';
         return Promise.reject(refreshError);
