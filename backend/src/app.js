@@ -32,8 +32,7 @@ app.use(helmet({
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
-  https://stock-trading-platform-zeta.vercel.app/ ,
-  https://stock-trading-platform-8l8g.onrender.com , 
+  'https://stock-trading-platform-zeta.vercel.app',
   'http://localhost:3000',
 ].filter(Boolean);
 
